@@ -7,6 +7,20 @@ description: Unified epic workflow - plan and execute large features with spec, 
 
 A structured approach to implementing large features by breaking them into phases: spec, research, plan, and execute.
 
+## Working Directory
+
+Epics are stored in `.epics/` relative to a base path. By default, this is the project root.
+
+**If the epic is in a subdirectory** (e.g., `weather-app/.epics/my-feature`), pass the `basePath` parameter to all tools:
+- `list_epics(basePath: "weather-app")`
+- `get_epic_status(epicName: "my-feature", basePath: "weather-app")`
+- `get_available_tasks(epicName: "my-feature", basePath: "weather-app")`
+- `build_task_context(epicName: "my-feature", taskId: "01", basePath: "weather-app")`
+
+Determine the correct `basePath` by checking where the `.epics/` directory is located relative to the project root.
+
+---
+
 ## Parse Arguments
 
 The input format is: `<epic-name> [mode]`
@@ -29,29 +43,29 @@ The input format is: `<epic-name> [mode]`
 
 ## Mode: list
 
-List all epics in the `.epics/` directory.
+**Use the `list_epics` tool** to quickly get all epics and their status.
 
-For each epic, show:
+Display the results in a formatted list showing:
 - Epic name
 - Current phase (spec/research/plan/execute/complete)
 - Task progress (X/Y done) if in execute phase
+- Whether yolo mode is active
 
-**If no `.epics/` directory exists:**
+**If no epics found:**
 > "No epics found. Start one with `/epic <name>`"
 
 ---
 
 ## Mode: status
 
-Show detailed status for the specified epic.
+**Use the `get_epic_status` tool** to quickly get detailed status.
 
-Read `.epics/<name>/.state` and all task files.
-
-Display:
+Display the results showing:
 - Current phase
 - Which artifacts exist (spec.md, research.md, plan.md)
 - Task breakdown: done, in-progress, pending, blocked
-- What's available to run next
+- Yolo mode status (if active)
+- Suggested next action
 
 **If epic doesn't exist:**
 > "Epic '<name>' not found. Start it with `/epic <name>`"
@@ -276,35 +290,37 @@ After saving:
 
 ### Step 4: Execute phase
 
-**If all tasks already done:**
+**Use `get_available_tasks` tool** to quickly see what's ready to run.
+
+**If all tasks done (available and blocked both empty):**
 > "All tasks complete! Epic finished."
 Stop.
 
 **If tasks remain:**
-Show task summary and ask:
+Show task summary from the tool output and ask:
 > "Ready to execute? X tasks remaining:
-> - Available now: [tasks with satisfied dependencies]
-> - Blocked: [tasks waiting on dependencies]"
+> - Available now: [from available list]
+> - Blocked by dependencies: [from blocked list]"
 
 Wait for confirmation. On "yes" or similar:
 
-**Execute all available tasks:**
-1. Find next task with satisfied dependencies
-2. Update task status to `in-progress`
-3. Execute the task (make code changes)
-4. Verify against "Done When" criteria
-5. Update task status to `done`
-6. Repeat until all tasks done OR context ~60% full
+**Execute tasks using `build_task_context` + Task tool:**
+
+Tasks with satisfied dependencies can be executed in **parallel** (the `available` list from `get_available_tasks` shows all tasks that are ready). Tasks whose dependencies aren't met yet are in the `blocked` list and must wait.
+
+For each task in the `available` list:
+1. Call `build_task_context(epicName, taskId, basePath?)` to get the prompt
+2. Call the Task tool with the prompt to spawn a sub-agent
+3. After sub-agent(s) complete, call `get_available_tasks` again to refresh the list
+4. If a task isn't done, retry up to 3 times, then mark blocked
+5. Repeat until all tasks done
+
+**Note:** If executing in parallel, each sub-agent gets the same context snapshot. Their reports will be available for subsequent tasks.
 
 **On task failure (after 3 attempts):**
-- Mark task as `blocked`
-- Add note explaining why
+- Mark task as `blocked` in the task file
+- Add `## Blocked Reason: [why]`
 - Continue with other available tasks
-
-**On context threshold (~60%):**
-- Save progress notes to current task
-- Update .state
-- Report: "Context filling up. Progress saved. Run `/epic <name>` to continue."
 
 **On all tasks complete:**
 > "Epic complete! All X tasks finished.
@@ -319,6 +335,8 @@ Wait for confirmation. On "yes" or similar:
 
 Full automatic execution with no checkpoints. Requires spec to exist.
 
+**IMPORTANT:** In yolo mode, the Epic plugin monitors for session idle events and automatically continues execution until all tasks are complete. You don't need to worry about session limits - just keep working and the plugin handles continuation.
+
 ### If no spec exists:
 
 > "No spec found at `.epics/<name>/spec.md`.
@@ -331,69 +349,205 @@ Stop. Do not proceed.
 
 ### If spec exists:
 
-Run all phases without asking for confirmation:
+**Step 1: Activate yolo mode in .state**
+
+Read the current `.epics/<name>/.state` file and add the `yolo` configuration:
+
+```json
+{
+  "name": "<name>",
+  "currentPhase": "...",
+  "specComplete": true,
+  "researchComplete": false,
+  "planComplete": false,
+  "executeComplete": false,
+  "lastUpdated": "<timestamp>",
+  "yolo": {
+    "active": true,
+    "iteration": 1,
+    "maxIterations": 100,
+    "startedAt": "<current ISO timestamp>"
+  }
+}
+```
+
+This tells the Epic plugin to automatically continue the session when you finish responding.
+
+**Step 2: Run all phases without asking for confirmation:**
 
 1. **Research** (if not done) - explore codebase, save research.md
-2. **Plan** (if not done) - create plan.md and task files
-3. **Execute** - run all tasks until done, failed, or context limit
+2. **Plan** (if not done) - create plan.md and task files  
+3. **Execute** - use `get_available_tasks` + `build_task_context` + Task tool
 
-**On context threshold (~60%):**
-- Save progress notes
-- Update .state
-- Report: "Context filling up. Progress saved. Run `/epic <name> yolo` to continue."
+**Execute tasks using `build_task_context` + Task tool:**
+
+Tasks with satisfied dependencies can be executed in **parallel** if desired.
+
+1. Call `get_available_tasks(epicName, basePath?)` to get the list of ready tasks
+2. For each task in the `available` list (can parallelize):
+   - Call `build_task_context(epicName, taskId, basePath?)` to get the prompt
+   - Call the Task tool with the prompt to spawn a sub-agent
+3. After sub-agent(s) complete, call `get_available_tasks` again to refresh
+4. If a task isn't done, retry up to 3 times, then mark blocked
+5. Repeat until all tasks done or all blocked
+
+The plugin will automatically continue the session if context fills up.
 
 **On all tasks complete:**
+- Update .state: set `executeComplete: true` and `yolo.active: false`
 > "Epic complete! All X tasks finished."
 
 **On task blocked (after 3 attempts):**
-- Mark as blocked, continue with others
-- If all remaining tasks blocked, report and stop
+- Mark as blocked in the task file, continue with others
+- If all remaining tasks blocked:
+  - Update .state: set `yolo.active: false`
+  - Report which tasks are blocked and why
 
 ---
 
 ## Shared: Task Execution Logic
 
-When executing a task:
+**IMPORTANT: Use the `build_task_context` tool + Task tool for each task.**
 
-### 1. Read the task file
-Parse goal, files, steps, done-when criteria.
+This pattern ensures each task runs with fresh context in a sub-agent:
+- Fresh context for each task (no accumulated cruft)
+- Proper handoff between tasks via reports
+- Consistent execution pattern
 
-### 2. Check dependencies
-Read plan.md Dependencies section. Ensure all dependencies have status `done`.
+### Execution Flow (Orchestrator)
 
-### 3. Update status
-Change `## Status: pending` to `## Status: in-progress`
+As the orchestrator, you manage the overall flow:
 
-### 4. Execute steps
-Follow the steps in the task file. Make the code changes.
+1. **Read plan.md** to understand task order and dependencies
+2. **For each available task** (dependencies satisfied, not blocked):
+   
+   **Step A: Build context**
+   ```
+   Call build_task_context with:
+   - epicName: the epic name  
+   - taskId: the task number (e.g., "01", "02")
+   ```
+   This returns a `prompt` field with the full context.
+   
+   **Step B: Execute with sub-agent**
+   ```
+   Call the Task tool with:
+   - description: "Execute task {taskId} of epic {epicName}"
+   - prompt: [the prompt returned from build_task_context]
+   ```
+   
+3. **After sub-agent completes**, check the task file:
+   - If `## Status: done` → Move to next task
+   - If not done → Retry (up to 3 times) or mark blocked
+4. **Repeat** until all tasks done or all remaining tasks blocked
 
-### 5. Verify completion
-Check each "Done When" criterion. If all pass, task is done.
+### What the Sub-Agent Does
 
-### 6. Update status
-Change `## Status: in-progress` to `## Status: done`
+The sub-agent (spawned via Task tool) receives full context and:
 
-### 7. Report
-> "Completed: Task XX - [name]
-> Changes: [files modified]
-> Now available: [newly unblocked tasks]"
+1. **Reads the context**: spec, research, plan, all previous task files with reports
+2. **Executes the task steps**
+3. **Updates the task file**:
+   - Changes `## Status: pending` to `## Status: done`
+   - Adds a `## Report` section (see format below)
+4. **May update future tasks** if the plan needs changes
+5. **Confirms completion** when done
 
-### On failure:
-- Retry up to 3 times
-- After 3 failures, mark as `## Status: blocked`
-- Add `## Blocked Reason: [why]`
-- Continue with other available tasks
+### Task File Format (with Report)
 
-### On context threshold:
-If context is ~60% full mid-task:
-- Add progress notes to task file:
+After completion, a task file should look like:
+
 ```markdown
-## Progress Notes
-- Completed: [what was done]
-- Remaining: [what still needs doing]
-- Timestamp: [now]
+# Task 01: [Name]
+
+## Status: done
+
+## Goal
+[What this task accomplishes]
+
+## Files
+- path/to/file1.ts
+- path/to/file2.ts
+
+## Steps
+1. [Concrete step]
+2. [Concrete step]
+
+## Done When
+- [x] [Criterion - now checked]
+- [x] [Criterion - now checked]
+
+## Report
+
+### What Was Done
+- Created X component
+- Added Y functionality
+- Configured Z
+
+### Decisions Made
+- Chose approach A over B because [reason]
+- Used library X for [reason]
+
+### Issues / Notes for Next Task
+- The API returns data in format X, next task should handle this
+- Found that Y needs to be done differently than planned
+
+### Files Changed
+- src/components/Foo.tsx (new)
+- src/hooks/useBar.ts (modified)
+- package.json (added dependency)
 ```
-- Save and exit
+
+### Handling Failures
+
+When `execute_epic_task` returns `status: "failed"`:
+
+1. **Check the summary** for what went wrong
+2. **Decide**:
+   - Retry (up to 3 times) if it seems like a transient issue
+   - Mark as blocked if fundamentally broken
+   - Revise the plan if the approach is wrong
+
+To mark as blocked:
+```markdown
+## Status: blocked
+
+## Blocked Reason
+[Explanation of why this task cannot proceed]
+```
+
+### On discovering the plan needs changes:
+
+If during execution you realize:
+- A task's approach is fundamentally wrong (not just a bug to fix)
+- Tasks are missing that should have been included
+- Dependencies are incorrect
+- The order should change
+- New information invalidates earlier assumptions
+
+**You may update the plan. The plan is a living document, not a rigid contract.**
+
+1. **Update the affected task file(s)** in `tasks/`:
+   - Revise steps if the approach needs changing
+   - Update "Files" if different files are involved
+   - Update "Done When" if criteria need adjusting
+
+2. **Update `plan.md`** if:
+   - Adding new tasks (create new task files too)
+   - Removing tasks (mark as `## Status: cancelled` with reason)
+   - Changing dependencies
+
+3. **Document the change** in the task file:
+   ```markdown
+   ## Plan Revision
+   - Changed: [what changed]
+   - Reason: [why the original approach didn't work]
+   - Timestamp: [now]
+   ```
+
+4. **Continue execution** with the revised plan
+
+**Key principle:** Do NOT keep retrying a broken approach. If something fundamentally doesn't work, adapt the plan. It's better to revise and succeed than to stubbornly fail.
 
 ---
 
@@ -433,4 +587,29 @@ Track epic progress in `.epics/<name>/.state`:
 }
 ```
 
-Update this file after each phase completes.
+**With yolo mode active:**
+```json
+{
+  "name": "<name>",
+  "currentPhase": "execute",
+  "specComplete": true,
+  "researchComplete": true,
+  "planComplete": true,
+  "executeComplete": false,
+  "lastUpdated": "2026-01-16T10:00:00Z",
+  "yolo": {
+    "active": true,
+    "iteration": 1,
+    "maxIterations": 100,
+    "startedAt": "2026-01-16T10:00:00Z"
+  }
+}
+```
+
+**Yolo fields:**
+- `active`: Set to `true` when yolo mode starts, `false` when complete or stopped
+- `iteration`: Current iteration count (plugin increments this on each continuation)
+- `maxIterations`: Safety limit (default 100). Set to 0 for unlimited.
+- `startedAt`: ISO timestamp when yolo mode was activated
+
+Update this file after each phase completes. The Epic plugin reads this file to determine whether to auto-continue.
