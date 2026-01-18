@@ -1,7 +1,23 @@
 {
   "name": "opencode-lisa",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lisa - intelligent epic workflow plugin for OpenCode. Like Ralph Wiggum, but smarter.",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    ".opencode/command",
+    ".opencode/skill"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun --format esm",
+    "prepublishOnly": "npm run build"
+  },
   "keywords": [
     "opencode",
     "opencode-plugin",
@@ -23,10 +39,11 @@
   "bugs": {
     "url": "https://github.com/fractalswift/lisa-simpson/issues"
   },
-  "files": [
-    ".opencode"
-  ],
   "peerDependencies": {
     "@opencode-ai/plugin": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.1.25",
+    "typescript": "^5.0.0"
   }
 }

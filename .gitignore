@@ -1,2 +1,11 @@
 # Lisa data (created per-project, not part of plugin)
 .lisa/
+
+# Build output
+dist/
+
+# Dependencies  
+node_modules/
+
+# Temp
+example.json
