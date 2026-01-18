@@ -392,6 +392,28 @@ Full automatic execution with no checkpoints. Requires spec to exist.
 
 **IMPORTANT:** In yolo mode, the Lisa plugin monitors for session idle events and automatically continues execution until all tasks are complete. You don't need to worry about session limits - just keep working and the plugin handles continuation.
 
+### YOLO MODE RULES - READ CAREFULLY
+
+When in yolo mode, you MUST follow these rules strictly:
+
+1. **NEVER stop to summarize progress** - Don't say "I've completed X, Y tasks remain". Just keep working.
+
+2. **NEVER ask for confirmation** - Don't say "Ready to continue?" or "Should I proceed?". Just proceed.
+
+3. **NEVER explain what you're about to do** - Don't narrate. Execute.
+
+4. **ALWAYS execute the next task immediately** - After one task completes, immediately call `get_available_tasks` and start the next one.
+
+5. **ONLY stop when truly done** - You stop ONLY when:
+   - All tasks have `## Status: done`, OR
+   - All remaining tasks are `## Status: blocked`
+
+6. **Treat each response as a work session** - Your goal is to make maximum progress before your response ends. Execute as many tasks as possible.
+
+**Why these rules matter:** Yolo mode is for autonomous, unattended execution. The user has walked away. Every time you stop to summarize or ask a question, you break the automation and waste the user's time.
+
+**If you're unsure, keep working.** It's better to complete an extra task than to stop and ask.
+
 ### If no spec exists:
 
 > "No spec found at `.lisa/epics/<name>/spec.md`.
@@ -447,6 +469,8 @@ Tasks with satisfied dependencies can be executed in **parallel** if desired.
 5. Repeat until all tasks done or all blocked
 
 The plugin will automatically continue the session if context fills up.
+
+**REMEMBER THE YOLO RULES:** Don't stop to summarize. Don't ask questions. Just keep executing tasks until they're all done or blocked.
 
 **On all tasks complete:**
 - Update .state: set `executeComplete: true` and `yolo.active: false`

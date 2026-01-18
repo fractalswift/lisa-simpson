@@ -1177,10 +1177,31 @@ Use this to check settings like git.completionMode before performing actions.`,
           message: `Sending continuation prompt for "${epicName}" to session ${sessionId}`,
         })
         
+        // Build a forceful continuation prompt that leaves no ambiguity
+        const continuationPrompt = `[LISA YOLO MODE - AUTO-CONTINUE]
+
+Epic: ${epicName}
+Tasks remaining: ${remaining}
+Iteration: ${nextIteration}${yolo.maxIterations > 0 ? ` of ${yolo.maxIterations}` : ""}
+
+MANDATORY ACTIONS:
+1. Load the lisa skill
+2. Call get_available_tasks("${epicName}") to see ready tasks
+3. For each available task, call build_task_context then Task tool
+4. Continue until ALL tasks are done
+
+RULES:
+- Do NOT stop to summarize
+- Do NOT ask for confirmation  
+- Do NOT explain what you're about to do
+- Just execute the next task immediately
+
+This is automated execution. Keep working.`
+
         try {
           await client.session.send({
             id: sessionId,
-            text: `Continue executing epic "${epicName}". ${remaining} task(s) remaining. [Iteration ${nextIteration}${yolo.maxIterations > 0 ? `/${yolo.maxIterations}` : ""}]`,
+            text: continuationPrompt,
           })
 
           await client.app.log({
