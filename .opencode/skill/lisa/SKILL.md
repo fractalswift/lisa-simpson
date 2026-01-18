@@ -1,28 +1,31 @@
 ---
-name: epic
-description: Unified epic workflow - plan and execute large features with spec, research, plan, and execute phases
+name: lisa
+description: Lisa - intelligent epic workflow with spec, research, plan, and execute phases. Smarter than Ralph.
 ---
 
-# Epic Workflow
+# Lisa - Intelligent Epic Workflow
 
 A structured approach to implementing large features by breaking them into phases: spec, research, plan, and execute.
 
+Like the Ralph Wiggum pattern, but smarter. Lisa plans before she acts.
+
 ## Working Directory
 
-Epics are stored in `.epics/` relative to **where you run `opencode`**. 
+Epics are stored in `.lisa/epics/` relative to **where you run `opencode`**. 
 
-Run opencode from your project root and epics will be at `your-project/.epics/`.
+Run opencode from your project root and epics will be at `your-project/.lisa/epics/`.
 
 **Example structure:**
 ```
 my-project/           <- run `opencode` from here
-├── .epics/
+├── .lisa/
 │   ├── config.jsonc
 │   ├── .gitignore
-│   └── my-feature/
-│       ├── .state
-│       ├── spec.md
-│       └── tasks/
+│   └── epics/
+│       └── my-feature/
+│           ├── .state
+│           ├── spec.md
+│           └── tasks/
 ├── src/
 └── package.json
 ```
@@ -35,26 +38,28 @@ The input format is: `<epic-name> [mode]`
 
 ### If no arguments or `help`:
 
-If the user runs `/epic` with no arguments, or `/epic help`, immediately respond with this help menu (no tool calls needed):
+If the user runs `/lisa` with no arguments, or `/lisa help`, immediately respond with this help menu (no tool calls needed):
 
 ```
-Epic Workflow - Available Commands:
+Lisa - Intelligent Epic Workflow
 
-  /epic list                - List all epics and their status
-  /epic <name>              - Continue or create an epic (interactive)
-  /epic <name> spec         - Create/view the spec only
-  /epic <name> status       - Show detailed epic status
-  /epic <name> yolo         - Auto-execute mode (no confirmations)
-  /epic config view         - View current configuration
-  /epic config init         - Initialize config with defaults
-  /epic config reset        - Reset config to defaults
+Available Commands:
+
+  /lisa list                - List all epics and their status
+  /lisa <name>              - Continue or create an epic (interactive)
+  /lisa <name> spec         - Create/view the spec only
+  /lisa <name> status       - Show detailed epic status
+  /lisa <name> yolo         - Auto-execute mode (no confirmations)
+  /lisa config view         - View current configuration
+  /lisa config init         - Initialize config with defaults
+  /lisa config reset        - Reset config to defaults
 
 Examples:
-  /epic list                - See all your epics
-  /epic auth-system         - Start or continue the auth-system epic
-  /epic auth-system yolo    - Run auth-system in full auto mode
+  /lisa list                - See all your epics
+  /lisa auth-system         - Start or continue the auth-system epic
+  /lisa auth-system yolo    - Run auth-system in full auto mode
 
-Get started: /epic <epic-name>
+Get started: /lisa <epic-name>
 ```
 
 **Stop here. Do not call any tools or do anything else.**
@@ -81,11 +86,11 @@ Get started: /epic <epic-name>
 
 ## Mode: config
 
-Handle config subcommands using the `epic_config` tool:
+Handle config subcommands using the `lisa_config` tool:
 
-- `config view` → Call `epic_config(action: "view")` and display the result
-- `config init` → Call `epic_config(action: "init")` and confirm creation
-- `config reset` → Call `epic_config(action: "reset")` and confirm reset
+- `config view` → Call `lisa_config(action: "view")` and display the result
+- `config init` → Call `lisa_config(action: "init")` and confirm creation
+- `config reset` → Call `lisa_config(action: "reset")` and confirm reset
 
 After the tool returns, display the result in a user-friendly format.
 
@@ -102,7 +107,7 @@ Display the results in a formatted list showing:
 - Whether yolo mode is active
 
 **If no epics found:**
-> "No epics found. Start one with `/epic <name>`"
+> "No epics found. Start one with `/lisa <name>`"
 
 ---
 
@@ -118,7 +123,7 @@ Display the results showing:
 - Suggested next action
 
 **If epic doesn't exist:**
-> "Epic '<name>' not found. Start it with `/epic <name>`"
+> "Epic '<name>' not found. Start it with `/lisa <name>`"
 
 ---
 
@@ -130,10 +135,10 @@ Interactive spec creation only. Does NOT continue to research/plan/execute.
 
 Read and display the existing spec, then:
 
-> "Spec already exists at `.epics/<name>/spec.md`. You can:
+> "Spec already exists at `.lisa/epics/<name>/spec.md`. You can:
 > - Edit it directly in your editor
-> - Delete it and run `/epic <name> spec` again to start over
-> - Run `/epic <name>` to continue with research and planning"
+> - Delete it and run `/lisa <name> spec` again to start over
+> - Run `/lisa <name>` to continue with research and planning"
 
 ### If no spec exists:
 
@@ -156,12 +161,12 @@ Summarize the spec and ask:
 > 
 > [formatted spec]
 > 
-> Ready to save to `.epics/<name>/spec.md`?"
+> Ready to save to `.lisa/epics/<name>/spec.md`?"
 
 On confirmation, create the directory and save:
 
 ```
-.epics/<name>/
+.lisa/epics/<name>/
   spec.md
   .state
 ```
@@ -202,11 +207,11 @@ On confirmation, create the directory and save:
 ```
 
 After saving:
-> "Spec saved to `.epics/<name>/spec.md`
+> "Spec saved to `.lisa/epics/<name>/spec.md`
 > 
 > Next steps:
-> - Run `/epic <name>` to continue with research and planning
-> - Run `/epic <name> yolo` for full auto execution"
+> - Run `/lisa <name>` to continue with research and planning
+> - Run `/lisa <name> yolo` for full auto execution"
 
 ---
 
@@ -236,7 +241,7 @@ Wait for confirmation. On "yes" or similar:
 1. Read spec.md
 2. Explore the codebase using available tools (LSP, grep, glob, file reads)
 3. Document findings
-4. Save to `.epics/<name>/research.md`
+4. Save to `.lisa/epics/<name>/research.md`
 5. Update .state
 
 **research.md format:**
@@ -336,7 +341,7 @@ After saving:
 > 2. [task 2 name]
 > ...
 > 
-> Saved to `.epics/<name>/plan.md`"
+> Saved to `.lisa/epics/<name>/plan.md`"
 
 ### Step 4: Execute phase
 
@@ -385,15 +390,15 @@ For each task in the `available` list:
 
 Full automatic execution with no checkpoints. Requires spec to exist.
 
-**IMPORTANT:** In yolo mode, the Epic plugin monitors for session idle events and automatically continues execution until all tasks are complete. You don't need to worry about session limits - just keep working and the plugin handles continuation.
+**IMPORTANT:** In yolo mode, the Lisa plugin monitors for session idle events and automatically continues execution until all tasks are complete. You don't need to worry about session limits - just keep working and the plugin handles continuation.
 
 ### If no spec exists:
 
-> "No spec found at `.epics/<name>/spec.md`.
+> "No spec found at `.lisa/epics/<name>/spec.md`.
 > 
 > Create one first:
-> - Interactively: `/epic <name> spec`
-> - Manually: Create `.epics/<name>/spec.md`"
+> - Interactively: `/lisa <name> spec`
+> - Manually: Create `.lisa/epics/<name>/spec.md`"
 
 Stop. Do not proceed.
 
@@ -401,7 +406,7 @@ Stop. Do not proceed.
 
 **Step 1: Activate yolo mode in .state**
 
-Read the current `.epics/<name>/.state` file and add the `yolo` configuration:
+Read the current `.lisa/epics/<name>/.state` file and add the `yolo` configuration:
 
 ```json
 {
@@ -421,7 +426,7 @@ Read the current `.epics/<name>/.state` file and add the `yolo` configuration:
 }
 ```
 
-This tells the Epic plugin to automatically continue the session when you finish responding.
+This tells the Lisa plugin to automatically continue the session when you finish responding.
 
 **Step 2: Run all phases without asking for confirmation:**
 
@@ -623,7 +628,7 @@ A task is **blocked** when:
 
 ## State File (.state)
 
-Track epic progress in `.epics/<name>/.state`:
+Track epic progress in `.lisa/epics/<name>/.state`:
 
 ```json
 {
@@ -662,25 +667,25 @@ Track epic progress in `.epics/<name>/.state`:
 - `maxIterations`: Safety limit. Use the value from config (`yolo.defaultMaxIterations`). Set to 0 for unlimited.
 - `startedAt`: ISO timestamp when yolo mode was activated
 
-Update this file after each phase completes. The Epic plugin reads this file to determine whether to auto-continue.
+Update this file after each phase completes. The Lisa plugin reads this file to determine whether to auto-continue.
 
 ---
 
 ## Configuration
 
-Epic workflow settings are stored in `.epics/config.jsonc`. The config is automatically created with safe defaults when you first create an epic.
+Lisa settings are stored in `.lisa/config.jsonc`. The config is automatically created with safe defaults when you first create an epic.
 
 **Config locations (merged in order):**
-1. `~/.config/epic-workflow/config.jsonc` - Global user defaults
-2. `.epics/config.jsonc` - Project settings (commit this)
-3. `.epics/config.local.jsonc` - Personal overrides (gitignored)
+1. `~/.config/lisa/config.jsonc` - Global user defaults
+2. `.lisa/config.jsonc` - Project settings (commit this)
+3. `.lisa/config.local.jsonc` - Personal overrides (gitignored)
 
-**Use the `get_epic_config` tool** to read current config settings.
+**Use the `get_lisa_config` tool** to read current config settings.
 
-**Use the `epic_config` tool** to view or manage config:
-- `epic_config(action: "view")` - Show current config and sources
-- `epic_config(action: "init")` - Create config if it doesn't exist
-- `epic_config(action: "reset")` - Reset config to defaults
+**Use the `lisa_config` tool** to view or manage config:
+- `lisa_config(action: "view")` - Show current config and sources
+- `lisa_config(action: "init")` - Create config if it doesn't exist
+- `lisa_config(action: "reset")` - Reset config to defaults
 
 ### Config Schema
 
@@ -716,7 +721,7 @@ When all tasks are done and the epic is complete, follow this completion flow ba
 
 ### Step 1: Check config
 
-Call `get_epic_config()` to read the current `git.completionMode`.
+Call `get_lisa_config()` to read the current `git.completionMode`.
 
 ### Step 2: Execute completion based on mode
 
@@ -801,11 +806,12 @@ Include a brief body with the tasks completed if helpful.
 
 ## First Epic Setup
 
-When creating the first epic in a project (when `.epics/` doesn't exist):
+When creating the first epic in a project (when `.lisa/` doesn't exist):
 
-1. Create `.epics/` directory
-2. Create `.epics/config.jsonc` with default settings
-3. Create `.epics/.gitignore` containing `config.local.jsonc`
-4. Create the epic directory `.epics/{epicName}/`
+1. Create `.lisa/` directory
+2. Create `.lisa/config.jsonc` with default settings
+3. Create `.lisa/.gitignore` containing `config.local.jsonc`
+4. Create `.lisa/epics/` directory
+5. Create the epic directory `.lisa/epics/{epicName}/`
 
 This ensures config is always present with safe defaults.

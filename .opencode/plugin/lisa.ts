@@ -5,13 +5,15 @@ import { existsSync } from "fs"
 import { join } from "path"
 
 /**
- * Epic Workflow Plugin for OpenCode
+ * Lisa - Intelligent Epic Workflow Plugin for OpenCode
+ *
+ * Like the Ralph Wiggum pattern, but smarter. Lisa plans before she acts.
  *
  * Provides:
  * 1. `build_task_context` tool - Builds context for a task (to be used with Task tool)
  * 2. Yolo mode auto-continue - Keeps the session running until all tasks are done
  *
- * Works with the epic skill (.opencode/skill/epic/SKILL.md) which manages the epic state.
+ * Works with the lisa skill (.opencode/skill/lisa/SKILL.md) which manages the epic state.
  */
 
 // ============================================================================
@@ -37,33 +39,33 @@ interface EpicState {
 }
 
 // ----------------------------------------------------------------------------
-// Epic Configuration Types
+// Lisa Configuration Types
 // ----------------------------------------------------------------------------
 
 type GitCompletionMode = "pr" | "commit" | "none"
 
-interface EpicConfigExecution {
+interface LisaConfigExecution {
   maxRetries: number
 }
 
-interface EpicConfigGit {
+interface LisaConfigGit {
   completionMode: GitCompletionMode
   branchPrefix: string
   autoPush: boolean
 }
 
-interface EpicConfigYolo {
+interface LisaConfigYolo {
   defaultMaxIterations: number
 }
 
-interface EpicConfig {
-  execution: EpicConfigExecution
-  git: EpicConfigGit
-  yolo: EpicConfigYolo
+interface LisaConfig {
+  execution: LisaConfigExecution
+  git: LisaConfigGit
+  yolo: LisaConfigYolo
 }
 
 // Default configuration (most cautious)
-const DEFAULT_CONFIG: EpicConfig = {
+const DEFAULT_CONFIG: LisaConfig = {
   execution: {
     maxRetries: 3,
   },
@@ -79,10 +81,10 @@ const DEFAULT_CONFIG: EpicConfig = {
 
 // Default config file content with comments
 const DEFAULT_CONFIG_CONTENT = `{
-  // Epic Workflow Configuration
+  // Lisa Configuration
   // 
-  // Merge order: ~/.config/epic-workflow/config.jsonc -> .epics/config.jsonc -> .epics/config.local.jsonc
-  // Override locally (gitignored) with: .epics/config.local.jsonc
+  // Merge order: ~/.config/lisa/config.jsonc -> .lisa/config.jsonc -> .lisa/config.local.jsonc
+  // Override locally (gitignored) with: .lisa/config.local.jsonc
 
   "execution": {
     // Number of retries for failed tasks before stopping
@@ -111,8 +113,8 @@ const DEFAULT_CONFIG_CONTENT = `{
 }
 `
 
-// .gitignore content for .epics directory
-const EPICS_GITIGNORE_CONTENT = `# Local config overrides (not committed)
+// .gitignore content for .lisa directory
+const LISA_GITIGNORE_CONTENT = `# Local config overrides (not committed)
 config.local.jsonc
 `
 
@@ -235,7 +237,7 @@ function deepMerge<T extends Record<string, any>>(target: T, source: Partial<T>)
 /**
  * Validate and sanitize config, logging warnings for invalid values
  */
-function validateConfig(config: Partial<EpicConfig>, logWarning: (msg: string) => void): EpicConfig {
+function validateConfig(config: Partial<LisaConfig>, logWarning: (msg: string) => void): LisaConfig {
   const result = deepMerge(DEFAULT_CONFIG, config)
 
   // Validate execution.maxRetries
@@ -275,13 +277,13 @@ function validateConfig(config: Partial<EpicConfig>, logWarning: (msg: string) =
 /**
  * Load config from a JSONC file
  */
-async function loadConfigFile(path: string): Promise<Partial<EpicConfig> | null> {
+async function loadConfigFile(path: string): Promise<Partial<LisaConfig> | null> {
   if (!existsSync(path)) return null
 
   try {
     const content = await readFile(path, "utf-8")
     const stripped = stripJsonComments(content)
-    return JSON.parse(stripped) as Partial<EpicConfig>
+    return JSON.parse(stripped) as Partial<LisaConfig>
   } catch {
     return null
   }
@@ -291,13 +293,13 @@ async function loadConfigFile(path: string): Promise<Partial<EpicConfig> | null>
  * Load and merge config from all sources
  * Order: global -> project -> project-local
  */
-async function loadConfig(directory: string, logWarning: (msg: string) => void): Promise<EpicConfig> {
+async function loadConfig(directory: string, logWarning: (msg: string) => void): Promise<LisaConfig> {
   const homeDir = process.env.HOME || process.env.USERPROFILE || ""
   
   // Config file paths
-  const globalConfigPath = join(homeDir, ".config", "epic-workflow", "config.jsonc")
-  const projectConfigPath = join(directory, ".epics", "config.jsonc")
-  const localConfigPath = join(directory, ".epics", "config.local.jsonc")
+  const globalConfigPath = join(homeDir, ".config", "lisa", "config.jsonc")
+  const projectConfigPath = join(directory, ".lisa", "config.jsonc")
+  const localConfigPath = join(directory, ".lisa", "config.local.jsonc")
 
   // Load configs in order
   const globalConfig = await loadConfigFile(globalConfigPath)
@@ -305,16 +307,16 @@ async function loadConfig(directory: string, logWarning: (msg: string) => void):
   const localConfig = await loadConfigFile(localConfigPath)
 
   // Merge configs
-  let merged: Partial<EpicConfig> = {}
+  let merged: Partial<LisaConfig> = {}
   
   if (globalConfig) {
-    merged = deepMerge(merged as EpicConfig, globalConfig)
+    merged = deepMerge(merged as LisaConfig, globalConfig)
   }
   if (projectConfig) {
-    merged = deepMerge(merged as EpicConfig, projectConfig)
+    merged = deepMerge(merged as LisaConfig, projectConfig)
   }
   if (localConfig) {
-    merged = deepMerge(merged as EpicConfig, localConfig)
+    merged = deepMerge(merged as LisaConfig, localConfig)
   }
 
   // Validate and return
@@ -322,20 +324,20 @@ async function loadConfig(directory: string, logWarning: (msg: string) => void):
 }
 
 /**
- * Ensure .epics directory exists with config files
+ * Ensure .lisa directory exists with config files
  */
-async function ensureEpicsDirectory(directory: string): Promise<{ created: boolean; configCreated: boolean }> {
-  const epicsDir = join(directory, ".epics")
-  const configPath = join(epicsDir, "config.jsonc")
-  const gitignorePath = join(epicsDir, ".gitignore")
+async function ensureLisaDirectory(directory: string): Promise<{ created: boolean; configCreated: boolean }> {
+  const lisaDir = join(directory, ".lisa")
+  const configPath = join(lisaDir, "config.jsonc")
+  const gitignorePath = join(lisaDir, ".gitignore")
 
   let created = false
   let configCreated = false
 
-  // Create .epics directory if needed
-  if (!existsSync(epicsDir)) {
+  // Create .lisa directory if needed
+  if (!existsSync(lisaDir)) {
     const { mkdir } = await import("fs/promises")
-    await mkdir(epicsDir, { recursive: true })
+    await mkdir(lisaDir, { recursive: true })
     created = true
   }
 
@@ -347,7 +349,7 @@ async function ensureEpicsDirectory(directory: string): Promise<{ created: boole
 
   // Create .gitignore if it doesn't exist
   if (!existsSync(gitignorePath)) {
-    await writeFile(gitignorePath, EPICS_GITIGNORE_CONTENT, "utf-8")
+    await writeFile(gitignorePath, LISA_GITIGNORE_CONTENT, "utf-8")
   }
 
   return { created, configCreated }
@@ -357,7 +359,7 @@ async function ensureEpicsDirectory(directory: string): Promise<{ created: boole
  * Get all task files for an epic, sorted by task number
  */
 async function getTaskFiles(directory: string, epicName: string): Promise<string[]> {
-  const tasksDir = join(directory, ".epics", epicName, "tasks")
+  const tasksDir = join(directory, ".lisa", "epics", epicName, "tasks")
 
   if (!existsSync(tasksDir)) return []
 
@@ -381,7 +383,7 @@ async function getTaskFiles(directory: string, epicName: string): Promise<string
 async function findActiveYoloEpic(
   directory: string
 ): Promise<{ name: string; state: EpicState } | null> {
-  const epicsDir = join(directory, ".epics")
+  const epicsDir = join(directory, ".lisa", "epics")
 
   if (!existsSync(epicsDir)) return null
 
@@ -416,7 +418,7 @@ async function findActiveYoloEpic(
  * Count remaining tasks for an epic (pending or in-progress)
  */
 async function countRemainingTasks(directory: string, epicName: string): Promise<number> {
-  const tasksDir = join(directory, ".epics", epicName, "tasks")
+  const tasksDir = join(directory, ".lisa", "epics", epicName, "tasks")
 
   if (!existsSync(tasksDir)) return 0
 
@@ -445,7 +447,7 @@ async function updateEpicState(
   epicName: string,
   updates: Partial<EpicState>
 ): Promise<void> {
-  const statePath = join(directory, ".epics", epicName, ".state")
+  const statePath = join(directory, ".lisa", "epics", epicName, ".state")
 
   try {
     const content = await readFile(statePath, "utf-8")
@@ -489,7 +491,7 @@ async function getTaskStats(
   directory: string,
   epicName: string
 ): Promise<{ total: number; done: number; inProgress: number; pending: number; blocked: number }> {
-  const tasksDir = join(directory, ".epics", epicName, "tasks")
+  const tasksDir = join(directory, ".lisa", "epics", epicName, "tasks")
 
   if (!existsSync(tasksDir)) {
     return { total: 0, done: 0, inProgress: 0, pending: 0, blocked: 0 }
@@ -530,7 +532,7 @@ async function parseDependencies(
   directory: string,
   epicName: string
 ): Promise<Map<string, string[]>> {
-  const planPath = join(directory, ".epics", epicName, "plan.md")
+  const planPath = join(directory, ".lisa", "epics", epicName, "plan.md")
   const deps = new Map<string, string[]>()
 
   if (!existsSync(planPath)) return deps
@@ -563,7 +565,7 @@ async function parseDependencies(
 // Plugin
 // ============================================================================
 
-export const EpicWorkflowPlugin: Plugin = async ({ directory, client, $ }) => {
+export const LisaPlugin: Plugin = async ({ directory, client, $ }) => {
   return {
     // ========================================================================
     // Custom Tools
@@ -575,16 +577,16 @@ export const EpicWorkflowPlugin: Plugin = async ({ directory, client, $ }) => {
       list_epics: tool({
         description: `List all epics and their current status.
 
-Returns a list of all epics in .epics/ with their phase and task progress.
+Returns a list of all epics in .lisa/epics/ with their phase and task progress.
 Much faster than manually reading files.`,
         args: {},
         async execute() {
-          const epicsDir = join(directory, ".epics")
+          const epicsDir = join(directory, ".lisa", "epics")
 
           if (!existsSync(epicsDir)) {
             return JSON.stringify({
               epics: [],
-              message: "No epics found. Start one with `/epic <name>`",
+              message: "No epics found. Start one with `/lisa <name>`",
             }, null, 2)
           }
 
@@ -657,12 +659,12 @@ Much faster than manually reading multiple files.`,
         },
         async execute(args) {
           const { epicName } = args
-          const epicDir = join(directory, ".epics", epicName)
+          const epicDir = join(directory, ".lisa", "epics", epicName)
 
           if (!existsSync(epicDir)) {
             return JSON.stringify({
               found: false,
-              error: `Epic "${epicName}" not found. Start it with \`/epic ${epicName}\``,
+              error: `Epic "${epicName}" not found. Start it with \`/lisa ${epicName}\``,
             }, null, 2)
           }
 
@@ -702,13 +704,13 @@ Much faster than manually reading multiple files.`,
           // Determine next action
           let nextAction = ""
           if (!artifacts.spec) {
-            nextAction = `Create spec with \`/epic ${epicName} spec\``
+            nextAction = `Create spec with \`/lisa ${epicName} spec\``
           } else if (!artifacts.research) {
-            nextAction = `Run \`/epic ${epicName}\` to start research`
+            nextAction = `Run \`/lisa ${epicName}\` to start research`
           } else if (!artifacts.plan) {
-            nextAction = `Run \`/epic ${epicName}\` to create plan`
+            nextAction = `Run \`/lisa ${epicName}\` to create plan`
           } else if (taskStats.pending > 0 || taskStats.inProgress > 0) {
-            nextAction = `Run \`/epic ${epicName}\` to continue execution or \`/epic ${epicName} yolo\` for auto mode`
+            nextAction = `Run \`/lisa ${epicName}\` to continue execution or \`/lisa ${epicName} yolo\` for auto mode`
           } else if (taskStats.blocked > 0) {
             nextAction = `${taskStats.blocked} task(s) blocked - review and unblock`
           } else {
@@ -740,7 +742,7 @@ Returns tasks that are pending/in-progress and have all dependencies completed.`
         },
         async execute(args) {
           const { epicName } = args
-          const epicDir = join(directory, ".epics", epicName)
+          const epicDir = join(directory, ".lisa", "epics", epicName)
           const tasksDir = join(epicDir, "tasks")
 
           if (!existsSync(tasksDir)) {
@@ -819,14 +821,14 @@ the task with a fresh sub-agent.
 
 Use this before calling the Task tool for each task execution.`,
         args: {
-          epicName: tool.schema.string().describe("Name of the epic (the folder name under .epics/)"),
+          epicName: tool.schema.string().describe("Name of the epic (the folder name under .lisa/epics/)"),
           taskId: tool.schema
             .string()
             .describe("Task ID - the number prefix like '01', '02', etc."),
         },
         async execute(args) {
           const { epicName, taskId } = args
-          const epicDir = join(directory, ".epics", epicName)
+          const epicDir = join(directory, ".lisa", "epics", epicName)
           const tasksDir = join(epicDir, "tasks")
 
           // Verify epic exists
@@ -928,7 +930,7 @@ ${previousTasks.length > 0 ? previousTasks.join("\n\n---\n\n") : "(This is the f
 
 ## Current Task to Execute
 
-**File: .epics/${epicName}/tasks/${taskFile}**
+**File: .lisa/epics/${epicName}/tasks/${taskFile}**
 
 ${taskContent}
 
@@ -947,7 +949,7 @@ ${taskContent}
 `
 
           await client.app.log({
-            service: "epic-plugin",
+            service: "lisa-plugin",
             level: "info",
             message: `Built context for task ${taskId} of epic "${epicName}" (${previousTasks.length} previous tasks)`,
           })
@@ -963,29 +965,29 @@ ${taskContent}
       }),
 
       // ----------------------------------------------------------------------
-      // epic_config - View and manage epic configuration
+      // lisa_config - View and manage Lisa configuration
       // ----------------------------------------------------------------------
-      epic_config: tool({
-        description: `View or reset epic configuration.
+      lisa_config: tool({
+        description: `View or reset Lisa configuration.
 
 Actions:
 - "view": Show current merged configuration and where values come from
-- "reset": Reset project config to defaults (creates .epics/config.jsonc)
+- "reset": Reset project config to defaults (creates .lisa/config.jsonc)
 - "init": Initialize config if it doesn't exist (non-destructive)`,
         args: {
           action: tool.schema.enum(["view", "reset", "init"]).describe("Action to perform"),
         },
         async execute(args) {
           const { action } = args
-          const epicsDir = join(directory, ".epics")
-          const configPath = join(epicsDir, "config.jsonc")
-          const localConfigPath = join(epicsDir, "config.local.jsonc")
+          const lisaDir = join(directory, ".lisa")
+          const configPath = join(lisaDir, "config.jsonc")
+          const localConfigPath = join(lisaDir, "config.local.jsonc")
           const homeDir = process.env.HOME || process.env.USERPROFILE || ""
-          const globalConfigPath = join(homeDir, ".config", "epic-workflow", "config.jsonc")
+          const globalConfigPath = join(homeDir, ".config", "lisa", "config.jsonc")
 
           const logWarning = (msg: string) => {
             client.app.log({
-              service: "epic-plugin",
+              service: "lisa-plugin",
               level: "warn",
               message: msg,
             })
@@ -1015,35 +1017,35 @@ Actions:
           if (action === "reset") {
             // Ensure directory exists and reset config
             const { mkdir } = await import("fs/promises")
-            if (!existsSync(epicsDir)) {
-              await mkdir(epicsDir, { recursive: true })
+            if (!existsSync(lisaDir)) {
+              await mkdir(lisaDir, { recursive: true })
             }
 
             await writeFile(configPath, DEFAULT_CONFIG_CONTENT, "utf-8")
             
             // Also ensure .gitignore exists
-            const gitignorePath = join(epicsDir, ".gitignore")
+            const gitignorePath = join(lisaDir, ".gitignore")
             if (!existsSync(gitignorePath)) {
-              await writeFile(gitignorePath, EPICS_GITIGNORE_CONTENT, "utf-8")
+              await writeFile(gitignorePath, LISA_GITIGNORE_CONTENT, "utf-8")
             }
 
             return JSON.stringify({
               success: true,
               message: "Config reset to defaults",
               path: configPath,
-              tip: "Edit .epics/config.jsonc to customize settings. Create .epics/config.local.jsonc for personal overrides (gitignored).",
+              tip: "Edit .lisa/config.jsonc to customize settings. Create .lisa/config.local.jsonc for personal overrides (gitignored).",
             }, null, 2)
           }
 
           if (action === "init") {
-            const result = await ensureEpicsDirectory(directory)
+            const result = await ensureLisaDirectory(directory)
 
             if (result.configCreated) {
               return JSON.stringify({
                 success: true,
                 message: "Config initialized with defaults",
                 path: configPath,
-                tip: "Edit .epics/config.jsonc to customize settings. Create .epics/config.local.jsonc for personal overrides (gitignored).",
+                tip: "Edit .lisa/config.jsonc to customize settings. Create .lisa/config.local.jsonc for personal overrides (gitignored).",
               }, null, 2)
             } else {
               return JSON.stringify({
@@ -1060,10 +1062,10 @@ Actions:
       }),
 
       // ----------------------------------------------------------------------
-      // get_epic_config - Get current config for use by other tools/skills
+      // get_lisa_config - Get current config for use by other tools/skills
       // ----------------------------------------------------------------------
-      get_epic_config: tool({
-        description: `Get the current epic configuration.
+      get_lisa_config: tool({
+        description: `Get the current Lisa configuration.
 
 Returns the merged configuration from all sources (global, project, local).
 Use this to check settings like git.completionMode before performing actions.`,
@@ -1071,7 +1073,7 @@ Use this to check settings like git.completionMode before performing actions.`,
         async execute() {
           const logWarning = (msg: string) => {
             client.app.log({
-              service: "epic-plugin",
+              service: "lisa-plugin",
               level: "warn",
               message: msg,
             })
@@ -1093,7 +1095,7 @@ Use this to check settings like git.completionMode before performing actions.`,
 
       // Debug: log the event
       await client.app.log({
-        service: "epic-plugin",
+        service: "lisa-plugin",
         level: "info",
         message: `session.idle event received. sessionId: ${sessionId || "UNDEFINED"}`,
       })
@@ -1102,7 +1104,7 @@ Use this to check settings like git.completionMode before performing actions.`,
       const activeEpic = await findActiveYoloEpic(directory)
       if (!activeEpic) {
         await client.app.log({
-          service: "epic-plugin",
+          service: "lisa-plugin",
           level: "info",
           message: "No active yolo epic found",
         })
@@ -1117,7 +1119,7 @@ Use this to check settings like git.completionMode before performing actions.`,
 
       // Log progress
       await client.app.log({
-        service: "epic-plugin",
+        service: "lisa-plugin",
         level: "info",
         message: `Epic "${epicName}" yolo check: ${remaining} tasks remaining, iteration ${yolo.iteration}/${yolo.maxIterations || "unlimited"}`,
       })
@@ -1129,10 +1131,10 @@ Use this to check settings like git.completionMode before performing actions.`,
           yolo: { ...yolo, active: false },
         })
 
-        await notify($, "Epic Complete", `Epic "${epicName}" finished successfully!`)
+        await notify($, "Lisa Complete", `Epic "${epicName}" finished successfully!`)
 
         await client.app.log({
-          service: "epic-plugin",
+          service: "lisa-plugin",
           level: "info",
           message: `Epic "${epicName}" completed! All tasks done.`,
         })
@@ -1148,12 +1150,12 @@ Use this to check settings like git.completionMode before performing actions.`,
 
         await notify(
           $,
-          "Epic Stopped",
+          "Lisa Stopped",
           `Epic "${epicName}" hit max iterations (${yolo.maxIterations})`
         )
 
         await client.app.log({
-          service: "epic-plugin",
+          service: "lisa-plugin",
           level: "warn",
           message: `Epic "${epicName}" stopped: max iterations (${yolo.maxIterations}) reached with ${remaining} tasks remaining`,
         })
@@ -1170,7 +1172,7 @@ Use this to check settings like git.completionMode before performing actions.`,
       // Send continuation prompt
       if (sessionId) {
         await client.app.log({
-          service: "epic-plugin",
+          service: "lisa-plugin",
           level: "info",
           message: `Sending continuation prompt for "${epicName}" to session ${sessionId}`,
         })
@@ -1182,20 +1184,20 @@ Use this to check settings like git.completionMode before performing actions.`,
           })
 
           await client.app.log({
-            service: "epic-plugin",
+            service: "lisa-plugin",
             level: "info",
             message: `Epic "${epicName}" continuing: iteration ${nextIteration}, ${remaining} tasks remaining`,
           })
         } catch (err) {
           await client.app.log({
-            service: "epic-plugin",
+            service: "lisa-plugin",
             level: "error",
             message: `Failed to send continuation: ${err}`,
           })
         }
       } else {
         await client.app.log({
-          service: "epic-plugin",
+          service: "lisa-plugin",
           level: "warn",
           message: `No sessionId available - cannot continue epic "${epicName}"`,
         })
