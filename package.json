@@ -1,0 +1,32 @@
+{
+  "name": "opencode-lisa",
+  "version": "0.1.0",
+  "description": "Lisa - intelligent epic workflow plugin for OpenCode. Like Ralph Wiggum, but smarter.",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "plugin",
+    "epic",
+    "workflow",
+    "ai",
+    "automation",
+    "lisa",
+    "ralph-wiggum"
+  ],
+  "author": "fractalswift",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fractalswift/lisa-simpson.git"
+  },
+  "homepage": "https://github.com/fractalswift/lisa-simpson#readme",
+  "bugs": {
+    "url": "https://github.com/fractalswift/lisa-simpson/issues"
+  },
+  "files": [
+    ".opencode"
+  ],
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.0.0"
+  }
+}
